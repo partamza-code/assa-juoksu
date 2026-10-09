@@ -1,1 +1,15 @@
-<!doctype html><html lang='fi'><meta charset='utf-8'><script>sessionStorage.clear();location.replace('office/game.html')</script></html>
+<!doctype html>
+<html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>ÄSSÄ JUOKSU</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}#stage{position:fixed;inset:0;width:100%;height:100%;background:#000}iframe{display:block;width:100%;height:100%;border:0;background:#000}#fs{position:fixed;right:8px;top:8px;z-index:999;border:2px solid #ffe0a3;border-radius:10px;background:#984b21;color:white;padding:6px 9px;font:900 10px system-ui;box-shadow:0 3px 0 #4b2a1b;cursor:pointer;touch-action:manipulation}</style>
+</head><body><main id="stage"><iframe id="game" src="office/game.html" allow="fullscreen; autoplay" allowfullscreen title="Ässä Juoksu"></iframe></main><button id="fs" type="button">⛶ KOKO RUUTU</button>
+<script>
+sessionStorage.clear();
+const stage=document.getElementById('stage');
+const frame=document.getElementById('game');
+const button=document.getElementById('fs');
+button.addEventListener('click',async()=>{try{if(!document.fullscreenElement){if(stage.requestFullscreen)await stage.requestFullscreen();else if(stage.webkitRequestFullscreen)await stage.webkitRequestFullscreen();}}catch(e){}});
+// Kenttien vaihto tapahtuu saman iframe-elementin sisällä, jolloin koko ruudun tila säilyy.
+// Piilotetaan kenttien omat fullscreen-painikkeet, jotta vain ulkokuoren painike näkyy.
+function hideInnerButton(){try{const d=frame.contentDocument;if(!d)return;const s=d.createElement('style');s.textContent='#fullscreenBtn{display:none!important}';d.head.appendChild(s);}catch(e){}}
+frame.addEventListener('load',hideInnerButton);
+</script></body></html>
