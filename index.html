@@ -16,7 +16,7 @@ sessionStorage.clear();
 const stage=document.getElementById('stage'), office=document.getElementById('office'), forest=document.getElementById('forest');
 const pad=document.getElementById('touchpad');let active=office,forestStarted=false;
 const frames=[office,forest];
-function ready(frame){try{frame.contentWindow.postMessage({assaEvent:'parentReady'},'*');frame.contentDocument.documentElement.classList.add('parentControls');}catch(e){}}
+function ready(frame){try{frame.contentWindow.postMessage({assaEvent:'parentReady'},'*');frame.contentDocument.documentElement.classList.add('parentControls');const innerFs=frame.contentDocument.getElementById('fullscreenBtn');if(innerFs)innerFs.style.setProperty('display','none','important');}catch(e){}}
 frames.forEach(f=>f.addEventListener('load',()=>ready(f)));
 function switchForest(){if(forestStarted)return;forestStarted=true;active=forest;
  office.style.visibility='hidden';office.style.pointerEvents='none';forest.style.visibility='visible';forest.style.pointerEvents='auto';
@@ -28,7 +28,7 @@ document.getElementById('fs').addEventListener('click',async()=>{try{if(!documen
 function fitPad(){const w=window.visualViewport?.width||innerWidth,h=window.visualViewport?.height||innerHeight;
  const gw=Math.min(w,h*16/9),gh=gw*9/16,left=(w-gw)/2,top=(h-gh)/2;
  pad.style.left=left+'px';pad.style.top=top+'px';pad.style.width=gw+'px';pad.style.height=gh+'px';
- const bh=gh*85/540;
+ const bh=gh*0.18; // Harmaa lattia: painikkeet täyttävät koko alaosan
  for(const id of ['left','right','jump'])document.getElementById(id).style.height=bh+'px';
  for(const id of ['left','right'])document.getElementById(id).style.width=(gw*.15)+'px';
  document.getElementById('jump').style.width=(gw*.23)+'px';
@@ -37,6 +37,27 @@ function updatePad(){fitPad();let started=false;try{const d=active.contentDocume
  pad.style.display=started?'block':'none';}
 setInterval(updatePad,150);addEventListener('resize',fitPad);addEventListener('orientationchange',()=>setTimeout(fitPad,150));fitPad();
 function send(key,down){active.contentWindow.postMessage({assaEvent:'key',key,down},'*')}
+// Työpöydän näppäimistöohjaus toimii myös, kun fullscreen siirtää fokuksen pääsivulle.
+const gameKeys=new Set(['ArrowLeft','ArrowRight','ArrowUp','KeyA','KeyD','KeyW','Space']);
+const heldKeys=new Set();
+function normalizeKey(e){
+ if(e.code==='ArrowLeft'||e.code==='KeyA')return 'ArrowLeft';
+ if(e.code==='ArrowRight'||e.code==='KeyD')return 'ArrowRight';
+ if(e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Space')return 'Space';
+ return null;
+}
+window.addEventListener('keydown',e=>{
+ const key=normalizeKey(e);if(!key)return;
+ e.preventDefault();if(!heldKeys.has(e.code)){heldKeys.add(e.code);send(key,true)}
+},{capture:true});
+window.addEventListener('keyup',e=>{
+ const key=normalizeKey(e);if(!key)return;
+ e.preventDefault();heldKeys.delete(e.code);send(key,false);
+},{capture:true});
+window.addEventListener('blur',()=>{for(const code of heldKeys){const key=normalizeKey({code});if(key)send(key,false)}heldKeys.clear()});
+document.addEventListener('fullscreenchange',()=>{
+ if(document.fullscreenElement){document.body.tabIndex=-1;document.body.focus({preventScroll:true})}
+});
 [['left','ArrowLeft'],['right','ArrowRight'],['jump','Space']].forEach(([id,key])=>{
  const b=document.getElementById(id);
  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);send(key,true)});
