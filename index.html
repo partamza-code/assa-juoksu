@@ -1,0 +1,66 @@
+<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>ÄSSÄ JUOKSU</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}
+#stage{position:fixed;inset:0;background:#000;overflow:hidden}
+.level{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+#forest{visibility:hidden;pointer-events:none}
+#fs{position:fixed;right:8px;top:8px;z-index:1000;border:2px solid #ffe0a3;border-radius:10px;background:#984b21;color:#fff;padding:6px 9px;font:900 10px system-ui;cursor:pointer;touch-action:manipulation}
+#touchpad{position:fixed;z-index:900;pointer-events:none;display:none;left:0;top:0;width:100%;height:100%}
+.pad{position:absolute;bottom:0;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;box-sizing:border-box;background:#984b21;border:3px solid #ffe0a3;border-radius:12px;color:white;font:900 clamp(17px,4vw,32px)/1 system-ui;box-shadow:none;display:flex;align-items:center;justify-content:center;padding:0}
+#left{left:0}#right{left:15%}#jump{right:0;font-size:clamp(13px,2.7vw,23px)}
+@media (pointer:fine){#touchpad{display:none!important}}
+</style></head><body><main id="stage"><iframe id="office" class="level" src="office/game.html" allow="fullscreen; autoplay" allowfullscreen title="Toimisto"></iframe><iframe id="forest" class="level" src="forest/game.html" allow="fullscreen; autoplay" allowfullscreen title="Metsä"></iframe></main><div id="touchpad"><button id="left" class="pad" aria-label="Vasen">◀</button><button id="right" class="pad" aria-label="Oikea">▶</button><button id="jump" class="pad" aria-label="Hyppy">HYPPY</button></div><button id="fs">⛶ KOKO RUUTU</button>
+<script>
+// Kaksi iframea pysyy ladattuna. Vaihto ei navigoi koko ruudun tilassa olevaa sivua.
+sessionStorage.clear();
+const stage=document.getElementById('stage'), office=document.getElementById('office'), forest=document.getElementById('forest');
+const pad=document.getElementById('touchpad');let active=office,forestStarted=false;
+const frames=[office,forest];
+function ready(frame){try{frame.contentWindow.postMessage({assaEvent:'parentReady'},'*');frame.contentDocument.documentElement.classList.add('parentControls');const innerFs=frame.contentDocument.getElementById('fullscreenBtn');if(innerFs)innerFs.style.setProperty('display','none','important');}catch(e){}}
+frames.forEach(f=>f.addEventListener('load',()=>ready(f)));
+function switchForest(){if(forestStarted)return;forestStarted=true;active=forest;
+ office.style.visibility='hidden';office.style.pointerEvents='none';forest.style.visibility='visible';forest.style.pointerEvents='auto';
+ forest.contentWindow.postMessage({assaEvent:'startForest'},'*');
+}
+window.addEventListener('message',e=>{if(e.source===office.contentWindow&&e.data?.assaEvent==='forest')switchForest()});
+document.getElementById('fs').addEventListener('click',async()=>{try{if(!document.fullscreenElement){await (document.documentElement.requestFullscreen?.()||document.documentElement.webkitRequestFullscreen?.());}}catch(e){}});
+// Ohjaimet piirretään pääsivulle: mobiilikoko ei enää riipu iframe-pelin CSS-skaalauksesta.
+function fitPad(){const w=window.visualViewport?.width||innerWidth,h=window.visualViewport?.height||innerHeight;
+ const gw=Math.min(w,h*16/9),gh=gw*9/16,left=(w-gw)/2,top=(h-gh)/2;
+ pad.style.left=left+'px';pad.style.top=top+'px';pad.style.width=gw+'px';pad.style.height=gh+'px';
+ const bh=gh*0.18; // Harmaa lattia: painikkeet täyttävät koko alaosan
+ for(const id of ['left','right','jump'])document.getElementById(id).style.height=bh+'px';
+ for(const id of ['left','right'])document.getElementById(id).style.width=(gw*.15)+'px';
+ document.getElementById('jump').style.width=(gw*.23)+'px';
+}
+function updatePad(){fitPad();let started=false;try{const d=active.contentDocument;started=d&&d.getElementById('startScreen')?.style.display==='none';}catch(e){}
+ pad.style.display=started?'block':'none';}
+setInterval(updatePad,150);addEventListener('resize',fitPad);addEventListener('orientationchange',()=>setTimeout(fitPad,150));fitPad();
+function send(key,down){active.contentWindow.postMessage({assaEvent:'key',key,down},'*')}
+// Työpöydän näppäimistöohjaus toimii myös, kun fullscreen siirtää fokuksen pääsivulle.
+const gameKeys=new Set(['ArrowLeft','ArrowRight','ArrowUp','KeyA','KeyD','KeyW','Space']);
+const heldKeys=new Set();
+function normalizeKey(e){
+ if(e.code==='ArrowLeft'||e.code==='KeyA')return 'ArrowLeft';
+ if(e.code==='ArrowRight'||e.code==='KeyD')return 'ArrowRight';
+ if(e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Space')return 'Space';
+ return null;
+}
+window.addEventListener('keydown',e=>{
+ const key=normalizeKey(e);if(!key)return;
+ e.preventDefault();if(!heldKeys.has(e.code)){heldKeys.add(e.code);send(key,true)}
+},{capture:true});
+window.addEventListener('keyup',e=>{
+ const key=normalizeKey(e);if(!key)return;
+ e.preventDefault();heldKeys.delete(e.code);send(key,false);
+},{capture:true});
+window.addEventListener('blur',()=>{for(const code of heldKeys){const key=normalizeKey({code});if(key)send(key,false)}heldKeys.clear()});
+document.addEventListener('fullscreenchange',()=>{
+ if(document.fullscreenElement){document.body.tabIndex=-1;document.body.focus({preventScroll:true})}
+});
+[['left','ArrowLeft'],['right','ArrowRight'],['jump','Space']].forEach(([id,key])=>{
+ const b=document.getElementById(id);
+ b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);send(key,true)});
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(type,e=>{e.preventDefault();send(key,false)});
+});
+</script></body></html>
